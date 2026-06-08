@@ -39,12 +39,21 @@ def transform_oil_data(df: pd.DataFrame) -> pd.DataFrame:
 
     # Find year columns (2023, 2024, 2025, ...)
     year_columns = []
+    found_year_columns = False
     for col_idx, value in years_row.items():
+        if pd.isna(value):
+            if found_year_columns:
+                break
+            continue
+
         try:
             year = int(value)
             if 1900 <= year <= 2100:
                 year_columns.append((col_idx, year))
+                found_year_columns = True
         except (ValueError, TypeError):
+            if found_year_columns:
+                break
             continue
 
     if not year_columns:
@@ -140,12 +149,21 @@ def transform_gas_data(df: pd.DataFrame) -> pd.DataFrame:
     years_row = df.iloc[years_row_idx]
 
     year_columns = []
+    found_year_columns = False
     for col_idx, value in years_row.items():
+        if pd.isna(value):
+            if found_year_columns:
+                break
+            continue
+
         try:
             year = int(value)
             if 1900 <= year <= 2100:
                 year_columns.append((col_idx, year))
+                found_year_columns = True
         except (ValueError, TypeError):
+            if found_year_columns:
+                break
             continue
 
     if not year_columns:
