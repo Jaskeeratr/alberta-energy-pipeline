@@ -1,0 +1,30 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Airflow and runtime output
+logs/
+plugins/
+config/
+airflow.db
+airflow.cfg
+webserver_config.py
+
+# Local OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Temporary Office lock files
+~$*.xlsx
+~$*.xls

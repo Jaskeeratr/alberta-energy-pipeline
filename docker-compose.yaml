@@ -1,0 +1,28 @@
+services:
+  airflow:
+    build: .
+    container_name: airflow_local
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__EXECUTION_API_SERVER_URL: "http://airflow:8080/execution/"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "sqlite:////opt/airflow/airflow.db"
+      AIRFLOW__CORE__EXECUTOR: "SequentialExecutor"
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "True"
+      _AIRFLOW_WWW_USER_USERNAME: "airflow"
+      _AIRFLOW_WWW_USER_PASSWORD: "airflow"
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
+      POSTGRES_HOST: "${POSTGRES_HOST:-host.docker.internal}"
+      POSTGRES_PORT: "${POSTGRES_PORT:-5432}"
+      POSTGRES_DB: "${POSTGRES_DB:-energy_pipeline}"
+      DATABASE_URL: "${DATABASE_URL:-}"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./scripts:/opt/airflow/scripts
+      - ./data:/opt/airflow/data
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./config:/opt/airflow/config
+    command: standalone
