@@ -108,3 +108,101 @@ def transform_oil_data(df: pd.DataFrame) -> pd.DataFrame:
     print(clean_df.head())
 
     return clean_df
+
+
+def transform_gas_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Transform Table S5.1 from the Alberta natural gas Excel workbook.
+
+    Output columns:
+      - field_name
+      - operator
+      - production_date
+      - volume_m3
+    """
+    print(f"Starting natural gas transform with {len(df):,} rows")
+
+    df = df.copy()
+
+    title_row_idx = None
+    for i in range(len(df)):
+        row_values = df.iloc[i].astype(str).tolist()
+        row_text = " ".join(row_values)
+        if "Table S5.1" in row_text:
+            title_row_idx = i
+            break
+
+    if title_row_idx is None:
+        raise ValueError("Could not find 'Table S5.1' in the workbook.")
+
+    years_row_idx = title_row_idx + 1
+    data_start_idx = title_row_idx + 3
+    years_row = df.iloc[years_row_idx]
+
+    year_columns = []
+    for col_idx, value in years_row.items():
+        try:
+            year = int(value)
+            if 1900 <= year <= 2100:
+                year_columns.append((col_idx, year))
+        except (ValueError, TypeError):
+            continue
+
+    if not year_columns:
+        raise ValueError("Could not find year columns in Table S5.1.")
+
+    records = []
+
+    for row_idx in range(data_start_idx, len(df)):
+        label = df.iloc[row_idx, 0]
+
+        if pd.isna(label):
+            continue
+
+        label = str(label).strip()
+
+        if label.lower().startswith("number of new wells placed on production"):
+            break
+
+        category = label.replace("\u2003", "").replace("\xa0", "").strip()
+        if category == "Gasa":
+            category = "Gas"
+        if not category:
+            continue
+
+        for col_idx, year in year_columns:
+            value = df.iloc[row_idx, col_idx]
+
+            if pd.isna(value):
+                continue
+
+            value = pd.to_numeric(value, errors="coerce")
+            if pd.isna(value):
+                continue
+
+            # Table S5.1 is reported as marketable production (10^6 m3/d).
+            volume_m3 = float(value) * 1_000_000
+
+            records.append(
+                {
+                    "field_name": category.upper(),
+                    "operator": "AER Summary",
+                    "production_date": pd.to_datetime(f"{year}-01-01").date(),
+                    "volume_m3": round(volume_m3, 2),
+                }
+            )
+
+    clean_df = pd.DataFrame(records)
+
+    if clean_df.empty:
+        raise ValueError("Transform produced no natural gas rows.")
+
+    clean_df = clean_df.dropna(subset=["field_name", "production_date", "volume_m3"])
+    clean_df = clean_df[clean_df["volume_m3"] >= 0]
+    clean_df = clean_df.drop_duplicates()
+
+    print(f"Natural gas transform complete: {len(clean_df):,} clean rows remaining")
+    print("\nPreview of cleaned natural gas data:")
+    print(clean_df.head())
+
+    return clean_df

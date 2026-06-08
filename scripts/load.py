@@ -32,24 +32,18 @@ def get_database_url() -> str:
     )
 
 
-def load_oil_data(df: pd.DataFrame) -> None:
-    """
-    Load cleaned oil production data into PostgreSQL.
-    Uses bulk insert for performance.
-    """
-
+def _load_production_data(df: pd.DataFrame, table_name: str) -> None:
     print("Connecting to PostgreSQL...")
 
     engine = create_engine(get_database_url())
 
-    # Optional: clear table before loading
     with engine.begin() as conn:
-        conn.execute(text("TRUNCATE TABLE oil_production RESTART IDENTITY"))
+        conn.execute(text(f"TRUNCATE TABLE {table_name} RESTART IDENTITY"))
 
     print("Loading data into database...")
 
     df.to_sql(
-        name="oil_production",
+        name=table_name,
         con=engine,
         if_exists="append",
         index=False,
@@ -57,7 +51,23 @@ def load_oil_data(df: pd.DataFrame) -> None:
         method="multi"
     )
 
-    print(f"Loaded {len(df)} rows into oil_production table")
+    print(f"Loaded {len(df)} rows into {table_name} table")
+
+
+def load_oil_data(df: pd.DataFrame) -> None:
+    """
+    Load cleaned oil production data into PostgreSQL.
+    Uses bulk insert for performance.
+    """
+    _load_production_data(df, "oil_production")
+
+
+def load_gas_data(df: pd.DataFrame) -> None:
+    """
+    Load cleaned natural gas production data into PostgreSQL.
+    Uses bulk insert for performance.
+    """
+    _load_production_data(df, "gas_production")
 
 
 def create_pipeline_run(source_name: str) -> int:

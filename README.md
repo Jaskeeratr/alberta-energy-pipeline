@@ -6,10 +6,10 @@ into analysis-ready records, loads them into PostgreSQL, and supports Power BI
 dashboarding.
 
 This project is being built as a data engineering portfolio project. The current
-version focuses on a clean crude oil ETL path, a dedicated validation step,
-pipeline audit tracking, Dockerized Airflow orchestration, PostgreSQL storage,
-and a Power BI dashboard file. Natural gas processing, tests, and benchmark
-reporting are planned incremental upgrades.
+version focuses on clean crude oil and natural gas ETL paths, a dedicated
+validation step, pipeline audit tracking, Dockerized Airflow orchestration,
+PostgreSQL storage, and a Power BI dashboard file. Tests and benchmark reporting
+are planned incremental upgrades.
 
 ## Tech Stack
 
@@ -25,7 +25,7 @@ reporting are planned incremental upgrades.
 ## Architecture
 
 ```text
-AER Excel workbook
+AER Excel workbooks
         |
         v
 scripts/extract.py
@@ -40,7 +40,7 @@ scripts/validate.py
 scripts/load.py
         |
         v
-PostgreSQL oil_production table
+PostgreSQL production tables
         |
         v
 Power BI dashboard
@@ -60,21 +60,20 @@ Current pipeline support:
   - Reads the `Tables` sheet.
   - Extracts Table S4.1.
   - Converts report-style crude oil production rows into normalized records.
-
-Planned support:
-
 - `natural_gas_production.xlsx`
-  - The file is present, but natural gas records are not loaded yet.
+  - Reads the `Tables` sheet.
+  - Extracts Table S5.1.
+  - Converts marketable natural gas production rows into normalized records.
 
 ## Pipeline Flow
 
 1. **Extract Excel data**
-   - Loads the `Tables` sheet from the crude oil workbook.
+   - Loads the `Tables` sheet from each supported workbook.
    - Preserves the raw report layout so the transform step can locate the target
      table.
 
 2. **Transform report-style tables**
-   - Finds Table S4.1 in the workbook.
+   - Finds Table S4.1 for crude oil and Table S5.1 for natural gas.
    - Reads production categories and year columns.
    - Converts values into one record per category and production year.
 
@@ -91,7 +90,7 @@ Planned support:
 
 5. **Load into PostgreSQL**
    - Connects using environment variables from `.env`.
-   - Truncates and reloads the `oil_production` table.
+   - Truncates and reloads the relevant production table.
    - Uses batched inserts through pandas and SQLAlchemy.
 
 6. **Visualize in Power BI**
@@ -176,11 +175,12 @@ Username: airflow
 Password: airflow
 ```
 
-Run the `alberta_energy_pipeline` DAG to execute the crude oil ETL pipeline.
+Run the `alberta_energy_pipeline` DAG to execute the crude oil and natural gas
+ETL pipelines.
 
 ## PostgreSQL Schema
 
-Current table:
+Current tables:
 
 ### `oil_production`
 
@@ -188,6 +188,20 @@ Current table:
 | --- | --- |
 | `id` | Surrogate primary key |
 | `field_name` | Crude oil production category from the AER table |
+| `operator` | Source/operator label |
+| `production_date` | Production year stored as a date |
+| `volume_m3` | Production value converted to cubic metres per day |
+| `province` | Defaults to `AB` |
+| `loaded_at` | Timestamp when the row was loaded |
+
+Indexes currently exist on `field_name` and `production_date`.
+
+### `gas_production`
+
+| Column | Purpose |
+| --- | --- |
+| `id` | Surrogate primary key |
+| `field_name` | Natural gas production category from the AER table |
 | `operator` | Source/operator label |
 | `production_date` | Production year stored as a date |
 | `volume_m3` | Production value converted to cubic metres per day |
@@ -219,7 +233,6 @@ and Airflow screenshots under `docs/screenshots/`.
 
 ## Current Limitations
 
-- Natural gas data exists in the repository but is not processed yet.
 - There are no automated tests yet.
 - Query performance claims are not made because benchmark evidence has not been
   generated yet.
@@ -227,15 +240,14 @@ and Airflow screenshots under `docs/screenshots/`.
 
 ## Planned Improvements
 
-- Extend the ETL flow to process natural gas production data.
 - Add pytest coverage for extract, transform, validation, and load behavior.
 - Add query benchmarking with `EXPLAIN ANALYZE`.
 - Add Power BI and Airflow screenshots for GitHub presentation.
 
 ## Resume-Safe Summary
 
-Built a Python ETL pipeline for Alberta crude oil production data using pandas,
-PostgreSQL, Docker, Airflow, and Power BI. The project extracts AER Excel data,
-transforms report-style tables into normalized production records, validates the
-cleaned dataset, tracks pipeline audit results, loads valid records into
-PostgreSQL, and supports dashboard reporting.
+Built a Python ETL pipeline for Alberta crude oil and natural gas production data
+using pandas, PostgreSQL, Docker, Airflow, and Power BI. The project extracts AER
+Excel data, transforms report-style tables into normalized production records,
+validates the cleaned datasets, tracks pipeline audit results, loads valid
+records into PostgreSQL, and supports dashboard reporting.

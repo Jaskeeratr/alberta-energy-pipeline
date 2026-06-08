@@ -25,3 +25,27 @@ def extract_oil_data(filepath: str) -> pd.DataFrame:
 
     print(f"Extracted {len(df):,} rows and {len(df.columns)} columns")
     return df
+
+
+def extract_gas_data(filepath: str) -> pd.DataFrame:
+    """
+    Load the 'Tables' sheet from the natural gas workbook exactly as-is.
+    """
+    path = Path(filepath)
+
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {filepath}")
+
+    suffix = path.suffix.lower()
+    print(f"Extracting data from: {filepath}")
+
+    if suffix in [".xlsx", ".xls"]:
+        excel_file = pd.ExcelFile(path)
+        print("Available sheets:", excel_file.sheet_names)
+
+        df = pd.read_excel(path, sheet_name="Tables", header=None)
+    else:
+        raise ValueError("This version expects an Excel file (.xlsx or .xls).")
+
+    print(f"Extracted {len(df):,} rows and {len(df.columns)} columns")
+    return df
