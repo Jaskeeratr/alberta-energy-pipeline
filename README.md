@@ -7,9 +7,9 @@ dashboarding.
 
 This project is being built as a data engineering portfolio project. The current
 version focuses on a clean crude oil ETL path, a dedicated validation step,
-Dockerized Airflow orchestration, PostgreSQL storage, and a Power BI dashboard
-file. Audit tracking, natural gas processing, tests, and benchmark reporting are
-planned incremental upgrades.
+pipeline audit tracking, Dockerized Airflow orchestration, PostgreSQL storage,
+and a Power BI dashboard file. Natural gas processing, tests, and benchmark
+reporting are planned incremental upgrades.
 
 ## Tech Stack
 
@@ -84,12 +84,17 @@ Planned support:
      categories, and duplicate records.
    - Prints a validation summary before loading.
 
-4. **Load into PostgreSQL**
+4. **Track audit results**
+   - Creates a pipeline run record.
+   - Stores validation issues for rejected rows.
+   - Updates run status, row counts, and error details when the run completes.
+
+5. **Load into PostgreSQL**
    - Connects using environment variables from `.env`.
    - Truncates and reloads the `oil_production` table.
    - Uses batched inserts through pandas and SQLAlchemy.
 
-5. **Visualize in Power BI**
+6. **Visualize in Power BI**
    - The repository includes `dashboard/energy_dashboard.pbix`.
    - Dashboard screenshots will be added in a later polish phase.
 
@@ -191,6 +196,16 @@ Current table:
 
 Indexes currently exist on `field_name` and `production_date`.
 
+### `pipeline_runs`
+
+Tracks each ETL run by source name, start and finish time, status, row counts,
+rejected rows, error rate, and failure message.
+
+### `data_quality_issues`
+
+Stores rejected validation records by pipeline run, source name, row identifier,
+issue type, and issue detail.
+
 ## Dashboard
 
 The Power BI file is stored at:
@@ -205,7 +220,6 @@ and Airflow screenshots under `docs/screenshots/`.
 ## Current Limitations
 
 - Natural gas data exists in the repository but is not processed yet.
-- There are no audit tables or pipeline run history yet.
 - There are no automated tests yet.
 - Query performance claims are not made because benchmark evidence has not been
   generated yet.
@@ -213,7 +227,6 @@ and Airflow screenshots under `docs/screenshots/`.
 
 ## Planned Improvements
 
-- Add audit tables for pipeline runs and data quality issues.
 - Extend the ETL flow to process natural gas production data.
 - Add pytest coverage for extract, transform, validation, and load behavior.
 - Add query benchmarking with `EXPLAIN ANALYZE`.
@@ -224,5 +237,5 @@ and Airflow screenshots under `docs/screenshots/`.
 Built a Python ETL pipeline for Alberta crude oil production data using pandas,
 PostgreSQL, Docker, Airflow, and Power BI. The project extracts AER Excel data,
 transforms report-style tables into normalized production records, validates the
-cleaned dataset, loads valid records into PostgreSQL, and supports dashboard
-reporting.
+cleaned dataset, tracks pipeline audit results, loads valid records into
+PostgreSQL, and supports dashboard reporting.
