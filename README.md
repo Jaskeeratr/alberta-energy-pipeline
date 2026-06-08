@@ -242,8 +242,14 @@ The Power BI file is stored at:
 dashboard/energy_dashboard.pbix
 ```
 
-Screenshots are not included yet. A later project polish phase will add dashboard
-and Airflow screenshots under `docs/screenshots/`.
+Screenshots are not included yet. Real dashboard and Airflow images should be
+added under `docs/screenshots/` after the tools are run locally.
+
+Screenshot guidance is available in:
+
+```text
+docs/screenshots/README.md
+```
 
 ## Query Benchmarking
 
@@ -267,6 +273,57 @@ performance improvement percentages are claimed.
 ## Planned Improvements
 
 - Add Power BI and Airflow screenshots for GitHub presentation.
+- Run the benchmark script against a loaded PostgreSQL database and commit the
+  real report output.
+- Add a Dockerized PostgreSQL service or seed/demo workflow for easier local
+  reproduction.
+
+## Project Impact
+
+This project demonstrates a practical batch data engineering workflow:
+extracting messy Excel-based public energy data, transforming report-style
+tables into normalized records, validating production data, loading PostgreSQL
+tables, tracking audit results, and supporting dashboard analysis.
+
+The strongest portfolio signal is not a fake scale claim. It is the combination
+of orchestration, schema design, validation, auditability, tests, and honest
+documentation.
+
+## What I Learned
+
+- How to convert report-style Excel tables into analysis-ready records.
+- How to separate extraction, transformation, validation, loading, and auditing
+  into readable pipeline steps.
+- How to keep resume claims defensible by tying them to real repo features.
+- How to document limitations without weakening the project.
+
+## Safe Resume Claims
+
+- Built an Airflow-orchestrated ETL pipeline for Alberta crude oil and natural
+  gas production data.
+- Transformed AER Excel workbook tables into normalized PostgreSQL reporting
+  tables.
+- Added validation checks for missing fields, invalid dates, negative values,
+  invalid production values, and duplicate records.
+- Implemented pipeline run tracking and data quality issue logging.
+- Added automated pytest coverage for core ETL behavior.
+
+## Claims to Avoid
+
+- Do not claim a specific record count until it is measured from a real run.
+- Do not claim a specific validation error rate until it appears in
+  `pipeline_runs`.
+- Do not claim a query performance improvement percentage until
+  `reports/query_benchmark.md` contains real `EXPLAIN ANALYZE` output.
+- Do not claim cloud deployment, streaming, Spark, Kafka, or machine learning.
+
+## Final Quality Check
+
+A fuller project review is available in:
+
+```text
+docs/final_quality_check.md
+```
 
 ## Resume-Safe Summary
 
