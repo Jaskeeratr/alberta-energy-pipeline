@@ -8,8 +8,8 @@ dashboarding.
 This project is being built as a data engineering portfolio project. The current
 version focuses on clean crude oil and natural gas ETL paths, a dedicated
 validation step, pipeline audit tracking, Dockerized Airflow orchestration,
-PostgreSQL storage, and a Power BI dashboard file. Tests and benchmark reporting
-are planned incremental upgrades.
+PostgreSQL storage, automated tests, and a Power BI dashboard file. Benchmark
+reporting is planned as an incremental upgrade.
 
 ## Tech Stack
 
@@ -106,6 +106,7 @@ Current pipeline support:
 ├── data/raw/              # Source Excel workbooks
 ├── scripts/               # Extract, transform, validate, and load scripts
 ├── sql/                   # PostgreSQL schema
+├── tests/                 # Pytest test suite
 ├── .env.example           # Example local environment variables
 ├── docker-compose.yaml    # Local Airflow container setup
 ├── Dockerfile             # Airflow image with Python dependencies
@@ -131,6 +132,12 @@ Install Python dependencies:
 
 ```bash
 pip install -r requirements.txt
+```
+
+Run automated tests:
+
+```bash
+pytest
 ```
 
 Create the database schema in PostgreSQL:
@@ -233,14 +240,12 @@ and Airflow screenshots under `docs/screenshots/`.
 
 ## Current Limitations
 
-- There are no automated tests yet.
 - Query performance claims are not made because benchmark evidence has not been
   generated yet.
 - Dashboard screenshots are not included yet.
 
 ## Planned Improvements
 
-- Add pytest coverage for extract, transform, validation, and load behavior.
 - Add query benchmarking with `EXPLAIN ANALYZE`.
 - Add Power BI and Airflow screenshots for GitHub presentation.
 
@@ -250,4 +255,5 @@ Built a Python ETL pipeline for Alberta crude oil and natural gas production dat
 using pandas, PostgreSQL, Docker, Airflow, and Power BI. The project extracts AER
 Excel data, transforms report-style tables into normalized production records,
 validates the cleaned datasets, tracks pipeline audit results, loads valid
-records into PostgreSQL, and supports dashboard reporting.
+records into PostgreSQL, includes automated tests, and supports dashboard
+reporting.

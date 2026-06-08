@@ -37,19 +37,22 @@ def _load_production_data(df: pd.DataFrame, table_name: str) -> None:
 
     engine = create_engine(get_database_url())
 
-    with engine.begin() as conn:
-        conn.execute(text(f"TRUNCATE TABLE {table_name} RESTART IDENTITY"))
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(f"TRUNCATE TABLE {table_name} RESTART IDENTITY"))
 
-    print("Loading data into database...")
+        print("Loading data into database...")
 
-    df.to_sql(
-        name=table_name,
-        con=engine,
-        if_exists="append",
-        index=False,
-        chunksize=1000,
-        method="multi"
-    )
+        df.to_sql(
+            name=table_name,
+            con=engine,
+            if_exists="append",
+            index=False,
+            chunksize=1000,
+            method="multi"
+        )
+    except Exception as exc:
+        raise RuntimeError(f"Failed to load data into {table_name}: {exc}") from exc
 
     print(f"Loaded {len(df)} rows into {table_name} table")
 
