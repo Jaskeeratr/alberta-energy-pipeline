@@ -6,10 +6,10 @@ into analysis-ready records, loads them into PostgreSQL, and supports Power BI
 dashboarding.
 
 This project is being built as a data engineering portfolio project. The current
-version focuses on a clean crude oil ETL path, Dockerized Airflow orchestration,
-PostgreSQL storage, and a Power BI dashboard file. Data validation, audit
-tracking, natural gas processing, tests, and benchmark reporting are planned
-incremental upgrades.
+version focuses on a clean crude oil ETL path, a dedicated validation step,
+Dockerized Airflow orchestration, PostgreSQL storage, and a Power BI dashboard
+file. Audit tracking, natural gas processing, tests, and benchmark reporting are
+planned incremental upgrades.
 
 ## Tech Stack
 
@@ -32,6 +32,9 @@ scripts/extract.py
         |
         v
 scripts/transform.py
+        |
+        v
+scripts/validate.py
         |
         v
 scripts/load.py
@@ -75,12 +78,18 @@ Planned support:
    - Reads production categories and year columns.
    - Converts values into one record per category and production year.
 
-3. **Load into PostgreSQL**
+3. **Validate records**
+   - Confirms required fields are present.
+   - Rejects invalid dates, invalid production values, negative values, missing
+     categories, and duplicate records.
+   - Prints a validation summary before loading.
+
+4. **Load into PostgreSQL**
    - Connects using environment variables from `.env`.
    - Truncates and reloads the `oil_production` table.
    - Uses batched inserts through pandas and SQLAlchemy.
 
-4. **Visualize in Power BI**
+5. **Visualize in Power BI**
    - The repository includes `dashboard/energy_dashboard.pbix`.
    - Dashboard screenshots will be added in a later polish phase.
 
@@ -91,7 +100,7 @@ Planned support:
 ├── dags/                  # Airflow DAG
 ├── dashboard/             # Power BI dashboard file
 ├── data/raw/              # Source Excel workbooks
-├── scripts/               # Extract, transform, and load scripts
+├── scripts/               # Extract, transform, validate, and load scripts
 ├── sql/                   # PostgreSQL schema
 ├── .env.example           # Example local environment variables
 ├── docker-compose.yaml    # Local Airflow container setup
@@ -196,7 +205,6 @@ and Airflow screenshots under `docs/screenshots/`.
 ## Current Limitations
 
 - Natural gas data exists in the repository but is not processed yet.
-- Validation is limited to cleanup logic inside the transform step.
 - There are no audit tables or pipeline run history yet.
 - There are no automated tests yet.
 - Query performance claims are not made because benchmark evidence has not been
@@ -205,7 +213,6 @@ and Airflow screenshots under `docs/screenshots/`.
 
 ## Planned Improvements
 
-- Add a dedicated validation layer with accepted and rejected records.
 - Add audit tables for pipeline runs and data quality issues.
 - Extend the ETL flow to process natural gas production data.
 - Add pytest coverage for extract, transform, validation, and load behavior.
@@ -216,5 +223,6 @@ and Airflow screenshots under `docs/screenshots/`.
 
 Built a Python ETL pipeline for Alberta crude oil production data using pandas,
 PostgreSQL, Docker, Airflow, and Power BI. The project extracts AER Excel data,
-transforms report-style tables into normalized production records, loads them
-into PostgreSQL, and supports dashboard reporting.
+transforms report-style tables into normalized production records, validates the
+cleaned dataset, loads valid records into PostgreSQL, and supports dashboard
+reporting.

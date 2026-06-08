@@ -1,6 +1,7 @@
 from scripts.extract import extract_oil_data
 from scripts.transform import transform_oil_data
 from scripts.load import load_oil_data
+from scripts.validate import validate_production_data
 
 
 def main():
@@ -11,8 +12,19 @@ def main():
     # Transform
     clean_df = transform_oil_data(raw_df)
 
+    # Validate
+    valid_df, rejected_df, summary = validate_production_data(
+        clean_df,
+        source_name="crude_oil",
+    )
+    print("\nValidation summary:")
+    print(summary)
+    if not rejected_df.empty:
+        print("\nRejected rows preview:")
+        print(rejected_df.head())
+
     # Load
-    load_oil_data(clean_df)
+    load_oil_data(valid_df)
 
     print("\nPipeline run complete.")
 
