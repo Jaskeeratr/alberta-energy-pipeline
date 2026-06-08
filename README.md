@@ -8,8 +8,8 @@ dashboarding.
 This project is being built as a data engineering portfolio project. The current
 version focuses on clean crude oil and natural gas ETL paths, a dedicated
 validation step, pipeline audit tracking, Dockerized Airflow orchestration,
-PostgreSQL storage, automated tests, and a Power BI dashboard file. Benchmark
-reporting is planned as an incremental upgrade.
+PostgreSQL storage, automated tests, query benchmarking support, and a Power BI
+dashboard file.
 
 ## Tech Stack
 
@@ -104,6 +104,7 @@ Current pipeline support:
 ├── dags/                  # Airflow DAG
 ├── dashboard/             # Power BI dashboard file
 ├── data/raw/              # Source Excel workbooks
+├── reports/               # Generated benchmark reports
 ├── scripts/               # Extract, transform, validate, and load scripts
 ├── sql/                   # PostgreSQL schema
 ├── tests/                 # Pytest test suite
@@ -138,6 +139,12 @@ Run automated tests:
 
 ```bash
 pytest
+```
+
+Generate a query benchmark report after PostgreSQL has been loaded:
+
+```bash
+python scripts/benchmark_queries.py
 ```
 
 Create the database schema in PostgreSQL:
@@ -238,15 +245,27 @@ dashboard/energy_dashboard.pbix
 Screenshots are not included yet. A later project polish phase will add dashboard
 and Airflow screenshots under `docs/screenshots/`.
 
+## Query Benchmarking
+
+The repository includes `scripts/benchmark_queries.py` for generating real
+PostgreSQL `EXPLAIN ANALYZE` output. The report path is:
+
+```text
+reports/query_benchmark.md
+```
+
+The checked-in report is currently a placeholder because benchmark queries have
+not been run against a loaded PostgreSQL database in this environment. No
+performance improvement percentages are claimed.
+
 ## Current Limitations
 
-- Query performance claims are not made because benchmark evidence has not been
-  generated yet.
+- Query benchmark tooling exists, but real timing results must be generated from
+  a loaded PostgreSQL database before making performance claims.
 - Dashboard screenshots are not included yet.
 
 ## Planned Improvements
 
-- Add query benchmarking with `EXPLAIN ANALYZE`.
 - Add Power BI and Airflow screenshots for GitHub presentation.
 
 ## Resume-Safe Summary
