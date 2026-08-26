@@ -11,6 +11,12 @@ __pycache__/
 .coverage
 htmlcov/
 
+# dbt build output and local state
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt/.user.yml
+
 # Airflow and runtime output
 logs/
 plugins/

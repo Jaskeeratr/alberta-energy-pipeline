@@ -22,3 +22,51 @@ jobs:
 
       - name: Run tests
         run: python -m pytest tests -v
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: energy_pipeline
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ci_password
+      POSTGRES_DB: energy_pipeline
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dbt.txt
+
+      - name: Create database schema
+        run: psql "postgresql://postgres:ci_password@localhost:5432/energy_pipeline" -f sql/schema.sql
+
+      - name: Run ETL pipeline end to end
+        run: python run_pipeline.py
+
+      - name: Run pipeline again to prove upserts are idempotent
+        run: python run_pipeline.py
+
+      - name: Build and test dbt models
+        run: dbt build --project-dir dbt --profiles-dir dbt
+
+      - name: Show analytics summary
+        run: psql "postgresql://postgres:ci_password@localhost:5432/energy_pipeline" -c "SELECT * FROM analytics.yearly_production_summary LIMIT 20"

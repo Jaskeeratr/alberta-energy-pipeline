@@ -1,7 +1,29 @@
 services:
+  postgres:
+    image: postgres:16
+    container_name: postgres_energy
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
+      POSTGRES_DB: "${POSTGRES_DB:-energy_pipeline}"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Auto-creates the pipeline tables on first startup.
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-energy_pipeline}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   airflow:
     build: .
     container_name: airflow_local
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
@@ -14,7 +36,7 @@ services:
       _AIRFLOW_WWW_USER_PASSWORD: "airflow"
       POSTGRES_USER: "${POSTGRES_USER:-postgres}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
-      POSTGRES_HOST: "${POSTGRES_HOST:-host.docker.internal}"
+      POSTGRES_HOST: "${POSTGRES_HOST:-postgres}"
       POSTGRES_PORT: "${POSTGRES_PORT:-5432}"
       POSTGRES_DB: "${POSTGRES_DB:-energy_pipeline}"
       DATABASE_URL: "${DATABASE_URL:-}"
@@ -29,3 +51,6 @@ services:
       - ./plugins:/opt/airflow/plugins
       - ./config:/opt/airflow/config
     command: standalone
+
+volumes:
+  postgres_data:

@@ -1,0 +1,26 @@
+version: 2
+
+models:
+  - name: fct_production
+    description: >
+      Unified fact table combining crude oil and natural gas production
+      records, one row per source, category, operator, and production date.
+    columns:
+      - name: energy_source
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["crude_oil", "natural_gas"]
+      - name: volume_m3
+        tests: [not_null]
+
+  - name: yearly_production_summary
+    description: Per-source, per-year production totals for dashboarding.
+    columns:
+      - name: energy_source
+        tests: [not_null]
+      - name: production_year
+        tests: [not_null]
+      - name: total_volume_m3
+        tests: [not_null]

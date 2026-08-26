@@ -1,0 +1,4 @@
+# Analytics-layer dependencies, kept separate from requirements.txt so the
+# Airflow image stays small. Install with:
+#   pip install -r requirements-dbt.txt
+dbt-postgres>=1.8,<2.0

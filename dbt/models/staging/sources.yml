@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Tables loaded by the Python ETL pipeline.
+    schema: public
+    tables:
+      - name: oil_production
+        description: Normalized AER crude oil production records.
+      - name: gas_production
+        description: Normalized AER natural gas production records.
+      - name: pipeline_runs
+        description: Audit record for each ETL run.

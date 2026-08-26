@@ -21,6 +21,7 @@ Power BI dashboard file.
 - openpyxl
 - SQLAlchemy
 - PostgreSQL
+- dbt (dbt-postgres)
 - Apache Airflow
 - Docker / Docker Compose
 - Power BI
@@ -50,6 +51,9 @@ scripts/load.py
         |
         v
 PostgreSQL production tables
+        |
+        v
+dbt models (analytics schema)
         |
         v
 Power BI dashboard
@@ -116,7 +120,16 @@ Current pipeline support:
      refreshed, and history from earlier editions is preserved.
    - Uses chunked batches through SQLAlchemy.
 
-6. **Visualize in Power BI**
+6. **Model analytics tables with dbt**
+   - Staging views clean and type the raw production tables.
+   - `analytics.fct_production` unifies oil and gas records with an
+     `energy_source` column.
+   - `analytics.yearly_production_summary` aggregates per-source, per-year
+     totals for dashboarding.
+   - dbt tests enforce not-null columns, accepted source values, natural-key
+     uniqueness, and non-negative volumes.
+
+7. **Visualize in Power BI**
    - The repository includes `dashboard/energy_dashboard.pbix`.
    - Dashboard screenshots will be added in a later polish phase.
 
@@ -127,8 +140,9 @@ Current pipeline support:
 ├── dags/                  # Airflow DAG
 ├── dashboard/             # Power BI dashboard file
 ├── data/raw/              # Source Excel workbooks
+├── dbt/                   # dbt analytics models and data tests
 ├── reports/               # Generated benchmark reports
-├── scripts/               # Extract, transform, validate, and load scripts
+├── scripts/               # Download, extract, transform, validate, and load scripts
 ├── sql/                   # PostgreSQL schema
 ├── tests/                 # Pytest test suite
 ├── .env.example           # Example local environment variables
@@ -195,16 +209,25 @@ python run_pipeline.py --source natural_gas
 
 ## Docker and Airflow
 
-The Docker setup runs Airflow and mounts the project folders into the container.
-PostgreSQL is expected to be available separately.
+The Docker setup runs two services:
 
-If PostgreSQL runs on your host machine, use this in `.env`:
+- `postgres`: PostgreSQL 16 with a persistent named volume. On first startup it
+  automatically creates the pipeline tables from `sql/schema.sql`.
+- `airflow`: Airflow standalone with the project folders mounted in. It waits
+  for the PostgreSQL healthcheck before starting and reaches the database at
+  the compose-internal hostname `postgres` by default.
+
+From your host machine (running `run_pipeline.py`, `psql`, dbt, or Power BI),
+connect to the bundled database at `localhost:5432`.
+
+If you prefer to run your own PostgreSQL on the host instead, set this in
+`.env` so the Airflow container can reach it:
 
 ```text
 POSTGRES_HOST=host.docker.internal
 ```
 
-Start Airflow:
+Start everything:
 
 ```bash
 docker compose up --build
@@ -275,6 +298,43 @@ rejected rows, error rate, and failure message.
 Stores rejected validation records by pipeline run, source name, row identifier,
 issue type, and issue detail.
 
+## Analytics Layer (dbt)
+
+The `dbt/` project builds an `analytics` schema on top of the loaded tables:
+
+| Model | Type | Purpose |
+| --- | --- | --- |
+| `stg_oil_production` | view | Cleaned crude oil records with a derived year |
+| `stg_gas_production` | view | Cleaned natural gas records with a derived year |
+| `fct_production` | table | Unified oil + gas fact table with `energy_source` |
+| `yearly_production_summary` | table | Per-source, per-year aggregates |
+
+Install the dbt dependencies (kept out of the main requirements so the Airflow
+image stays small):
+
+```bash
+pip install -r requirements-dbt.txt
+```
+
+Build the models and run all dbt data tests (uses the same `POSTGRES_*`
+environment variables as the pipeline):
+
+```bash
+dbt build --project-dir dbt --profiles-dir dbt
+```
+
+Point Power BI at the `analytics` schema tables instead of the raw ones.
+
+## Continuous Integration
+
+Every push runs two GitHub Actions jobs:
+
+- `test`: the pytest unit suite.
+- `integration`: spins up PostgreSQL 16, creates the schema, runs the full
+  ETL pipeline end to end against the committed AER workbooks, runs it a
+  second time to prove the upserts are idempotent, then runs `dbt build`
+  including all dbt data tests.
+
 ## Dashboard
 
 The Power BI file is stored at:
@@ -316,8 +376,6 @@ performance improvement percentages are claimed.
 - Add Power BI and Airflow screenshots for GitHub presentation.
 - Run the benchmark script against a loaded PostgreSQL database and commit the
   real report output.
-- Add a Dockerized PostgreSQL service or seed/demo workflow for easier local
-  reproduction.
 
 ## Project Impact
 
@@ -352,6 +410,12 @@ documentation.
   payload sanity checks.
 - Added automated pytest coverage for core ETL behavior, run in GitHub Actions
   CI on every push.
+- Modeled an analytics layer with dbt (staging views, a unified fact table,
+  yearly aggregates) with dbt data tests.
+- Added an end-to-end CI integration job that loads a real PostgreSQL database
+  and verifies upsert idempotency and all dbt tests.
+- Dockerized the full stack: Airflow plus PostgreSQL with schema auto-creation
+  and healthcheck-gated startup.
 
 ## Claims to Avoid
 
