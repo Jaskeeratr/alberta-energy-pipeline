@@ -8,8 +8,12 @@ CREATE TABLE IF NOT EXISTS oil_production (
     loaded_at       TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_oil_field ON oil_production(field_name);
-CREATE INDEX idx_oil_date  ON oil_production(production_date);
+CREATE INDEX IF NOT EXISTS idx_oil_field ON oil_production(field_name);
+CREATE INDEX IF NOT EXISTS idx_oil_date  ON oil_production(production_date);
+
+-- Natural key used by the incremental upsert in scripts/load.py.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_oil_production_record
+    ON oil_production(field_name, operator, production_date);
 
 CREATE TABLE IF NOT EXISTS gas_production (
     id              SERIAL PRIMARY KEY,
@@ -21,8 +25,12 @@ CREATE TABLE IF NOT EXISTS gas_production (
     loaded_at       TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_gas_field ON gas_production(field_name);
-CREATE INDEX idx_gas_date  ON gas_production(production_date);
+CREATE INDEX IF NOT EXISTS idx_gas_field ON gas_production(field_name);
+CREATE INDEX IF NOT EXISTS idx_gas_date  ON gas_production(production_date);
+
+-- Natural key used by the incremental upsert in scripts/load.py.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_gas_production_record
+    ON gas_production(field_name, operator, production_date);
 
 CREATE TABLE IF NOT EXISTS pipeline_runs (
     run_id          SERIAL PRIMARY KEY,
@@ -47,6 +55,6 @@ CREATE TABLE IF NOT EXISTS data_quality_issues (
     created_at      TIMESTAMP DEFAULT NOW()
 );
 
-CREATE INDEX idx_pipeline_runs_source ON pipeline_runs(source_name);
-CREATE INDEX idx_pipeline_runs_status ON pipeline_runs(status);
-CREATE INDEX idx_quality_issues_run ON data_quality_issues(pipeline_run_id);
+CREATE INDEX IF NOT EXISTS idx_pipeline_runs_source ON pipeline_runs(source_name);
+CREATE INDEX IF NOT EXISTS idx_pipeline_runs_status ON pipeline_runs(status);
+CREATE INDEX IF NOT EXISTS idx_quality_issues_run ON data_quality_issues(pipeline_run_id);

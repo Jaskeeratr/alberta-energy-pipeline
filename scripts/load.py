@@ -32,35 +32,56 @@ def get_database_url() -> str:
     )
 
 
+PRODUCTION_COLUMNS = ["field_name", "operator", "production_date", "volume_m3"]
+
+UPSERT_CHUNK_SIZE = 1000
+
+
+def _build_upsert_statement(table_name: str):
+    """
+    Incremental upsert keyed on (field_name, operator, production_date).
+
+    New records are inserted; records already present get their volume and
+    loaded_at refreshed. Historical rows from earlier editions of the source
+    workbook are preserved instead of being truncated away.
+    """
+    return text(
+        f"""
+        INSERT INTO {table_name} (field_name, operator, production_date, volume_m3)
+        VALUES (:field_name, :operator, :production_date, :volume_m3)
+        ON CONFLICT (field_name, operator, production_date)
+        DO UPDATE SET
+            volume_m3 = EXCLUDED.volume_m3,
+            loaded_at = NOW()
+        """
+    )
+
+
 def _load_production_data(df: pd.DataFrame, table_name: str) -> None:
+    if df.empty:
+        print(f"No valid rows to load into {table_name}; skipping load step.")
+        return
+
     print("Connecting to PostgreSQL...")
 
     engine = create_engine(get_database_url())
+    statement = _build_upsert_statement(table_name)
+    rows = df[PRODUCTION_COLUMNS].to_dict("records")
 
     try:
         with engine.begin() as conn:
-            conn.execute(text(f"TRUNCATE TABLE {table_name} RESTART IDENTITY"))
-
-        print("Loading data into database...")
-
-        df.to_sql(
-            name=table_name,
-            con=engine,
-            if_exists="append",
-            index=False,
-            chunksize=1000,
-            method="multi"
-        )
+            for start in range(0, len(rows), UPSERT_CHUNK_SIZE):
+                conn.execute(statement, rows[start:start + UPSERT_CHUNK_SIZE])
     except Exception as exc:
         raise RuntimeError(f"Failed to load data into {table_name}: {exc}") from exc
 
-    print(f"Loaded {len(df)} rows into {table_name} table")
+    print(f"Upserted {len(rows)} rows into {table_name} table")
 
 
 def load_oil_data(df: pd.DataFrame) -> None:
     """
     Load cleaned oil production data into PostgreSQL.
-    Uses bulk insert for performance.
+    Uses chunked incremental upserts keyed on field, operator, and date.
     """
     _load_production_data(df, "oil_production")
 
@@ -68,7 +89,7 @@ def load_oil_data(df: pd.DataFrame) -> None:
 def load_gas_data(df: pd.DataFrame) -> None:
     """
     Load cleaned natural gas production data into PostgreSQL.
-    Uses bulk insert for performance.
+    Uses chunked incremental upserts keyed on field, operator, and date.
     """
     _load_production_data(df, "gas_production")
 

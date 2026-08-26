@@ -1,3 +1,6 @@
+import argparse
+
+from scripts.download import download_source_data
 from scripts.extract import extract_gas_data, extract_oil_data
 from scripts.transform import transform_gas_data, transform_oil_data
 from scripts.load import (
@@ -8,6 +11,22 @@ from scripts.load import (
     load_oil_data,
 )
 from scripts.validate import validate_production_data
+
+
+SOURCES = {
+    "crude_oil": {
+        "filepath": "data/raw/crude_oil_production.xlsx",
+        "extract_func": extract_oil_data,
+        "transform_func": transform_oil_data,
+        "load_func": load_oil_data,
+    },
+    "natural_gas": {
+        "filepath": "data/raw/natural_gas_production.xlsx",
+        "extract_func": extract_gas_data,
+        "transform_func": transform_gas_data,
+        "load_func": load_gas_data,
+    },
+}
 
 
 def run_source_pipeline(
@@ -66,21 +85,34 @@ def run_source_pipeline(
         raise
 
 
-def main():
-    run_source_pipeline(
-        source_name="crude_oil",
-        filepath="data/raw/crude_oil_production.xlsx",
-        extract_func=extract_oil_data,
-        transform_func=transform_oil_data,
-        load_func=load_oil_data,
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Run the Alberta energy ETL pipeline.",
     )
-    run_source_pipeline(
-        source_name="natural_gas",
-        filepath="data/raw/natural_gas_production.xlsx",
-        extract_func=extract_gas_data,
-        transform_func=transform_gas_data,
-        load_func=load_gas_data,
+    parser.add_argument(
+        "--source",
+        choices=[*SOURCES, "all"],
+        default="all",
+        help="Which source to run (default: all).",
     )
+    parser.add_argument(
+        "--download",
+        action="store_true",
+        help="Download the latest AER workbooks before running the ETL.",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
+
+    if args.download:
+        download_source_data()
+
+    source_names = list(SOURCES) if args.source == "all" else [args.source]
+
+    for source_name in source_names:
+        run_source_pipeline(source_name, **SOURCES[source_name])
 
     print("\nAll pipeline runs complete.")
 

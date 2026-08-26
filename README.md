@@ -1,15 +1,18 @@
 # Alberta Energy Pipeline
 
+[![CI](https://github.com/Jaskeeratr/alberta-energy-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/Jaskeeratr/alberta-energy-pipeline/actions/workflows/ci.yml)
+
 An Airflow-orchestrated ETL pipeline that extracts Alberta Energy Regulator (AER)
 crude oil production data from Excel workbooks, transforms report-style tables
 into analysis-ready records, loads them into PostgreSQL, and supports Power BI
 dashboarding.
 
 This project is being built as a data engineering portfolio project. The current
-version focuses on clean crude oil and natural gas ETL paths, a dedicated
-validation step, pipeline audit tracking, Dockerized Airflow orchestration,
-PostgreSQL storage, automated tests, query benchmarking support, and a Power BI
-dashboard file.
+version focuses on clean crude oil and natural gas ETL paths, optional automated
+source downloads from the AER website, a dedicated validation step, incremental
+upsert loading, pipeline audit tracking, Dockerized Airflow orchestration,
+PostgreSQL storage, automated tests with CI, query benchmarking support, and a
+Power BI dashboard file.
 
 ## Tech Stack
 
@@ -25,7 +28,13 @@ dashboard file.
 ## Architecture
 
 ```text
-AER Excel workbooks
+AER website (optional automated download)
+        |
+        v
+scripts/download.py
+        |
+        v
+AER Excel workbooks in data/raw/
         |
         v
 scripts/extract.py
@@ -52,7 +61,19 @@ Airflow DAG in `dags/energy_pipeline.py`.
 ## Data Source
 
 The raw input files are AER Alberta energy Excel workbooks stored under
-`data/raw/`.
+`data/raw/`. They come from the AER ST98 (Alberta Energy Outlook) statistical
+data downloads.
+
+The pipeline can also fetch the latest workbooks itself:
+
+- Run `python run_pipeline.py --download` locally, or
+- Set `AER_AUTO_DOWNLOAD=true` in `.env` so the Airflow DAG's
+  `download_source_data` task refreshes the workbooks before each run.
+
+The download URLs default to the ST98 2025 edition and can be overridden with
+`CRUDE_OIL_XLSX_URL` and `NATURAL_GAS_XLSX_URL` when AER publishes a new
+edition. Downloads are written atomically and sanity-checked, so a failed or
+moved URL never corrupts the existing workbooks.
 
 Current pipeline support:
 
@@ -90,8 +111,10 @@ Current pipeline support:
 
 5. **Load into PostgreSQL**
    - Connects using environment variables from `.env`.
-   - Truncates and reloads the relevant production table.
-   - Uses batched inserts through pandas and SQLAlchemy.
+   - Performs incremental upserts keyed on field, operator, and production
+     date: new records are inserted, existing records get their volume
+     refreshed, and history from earlier editions is preserved.
+   - Uses chunked batches through SQLAlchemy.
 
 6. **Visualize in Power BI**
    - The repository includes `dashboard/energy_dashboard.pbix`.
@@ -159,6 +182,17 @@ Run the local pipeline:
 python run_pipeline.py
 ```
 
+Useful variations:
+
+```bash
+# Download the latest AER workbooks first, then run everything
+python run_pipeline.py --download
+
+# Run a single source
+python run_pipeline.py --source crude_oil
+python run_pipeline.py --source natural_gas
+```
+
 ## Docker and Airflow
 
 The Docker setup runs Airflow and mounts the project folders into the container.
@@ -190,7 +224,8 @@ Password: airflow
 ```
 
 Run the `alberta_energy_pipeline` DAG to execute the crude oil and natural gas
-ETL pipelines.
+ETL pipelines. The DAG runs a `download_source_data` task first (a no-op unless
+`AER_AUTO_DOWNLOAD=true`), then the two source ETL tasks in parallel.
 
 ## PostgreSQL Schema
 
@@ -208,7 +243,8 @@ Current tables:
 | `province` | Defaults to `AB` |
 | `loaded_at` | Timestamp when the row was loaded |
 
-Indexes currently exist on `field_name` and `production_date`.
+Indexes exist on `field_name` and `production_date`, plus a unique index on
+`(field_name, operator, production_date)` that backs the incremental upsert.
 
 ### `gas_production`
 
@@ -222,7 +258,12 @@ Indexes currently exist on `field_name` and `production_date`.
 | `province` | Defaults to `AB` |
 | `loaded_at` | Timestamp when the row was loaded |
 
-Indexes currently exist on `field_name` and `production_date`.
+Indexes exist on `field_name` and `production_date`, plus a unique index on
+`(field_name, operator, production_date)` that backs the incremental upsert.
+
+If you created the tables before the upsert change, re-run
+`psql -d energy_pipeline -f sql/schema.sql` once to add the unique indexes —
+every statement in the schema file is idempotent.
 
 ### `pipeline_runs`
 
@@ -306,7 +347,11 @@ documentation.
 - Added validation checks for missing fields, invalid dates, negative values,
   invalid production values, and duplicate records.
 - Implemented pipeline run tracking and data quality issue logging.
-- Added automated pytest coverage for core ETL behavior.
+- Implemented incremental upsert loading with a natural-key unique index.
+- Automated source data downloads from the AER website with atomic writes and
+  payload sanity checks.
+- Added automated pytest coverage for core ETL behavior, run in GitHub Actions
+  CI on every push.
 
 ## Claims to Avoid
 

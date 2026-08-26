@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 
+from scripts.download import maybe_download_source_data
 from scripts.extract import extract_gas_data, extract_oil_data
 from scripts.transform import transform_gas_data, transform_oil_data
 from scripts.load import (
@@ -20,6 +21,8 @@ default_args = {
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
 }
+
+DATA_DIR = "/opt/airflow/data/raw"
 
 
 def run_source_pipeline(
@@ -72,17 +75,26 @@ def run_source_pipeline(
         raise
 
 
-def run_pipeline():
+def download_inputs():
+    # No-op unless AER_AUTO_DOWNLOAD is enabled, so scheduled runs still work
+    # offline against the workbooks committed under data/raw.
+    maybe_download_source_data(DATA_DIR)
+
+
+def run_crude_oil_etl():
     run_source_pipeline(
         source_name="crude_oil",
-        filepath="/opt/airflow/data/raw/crude_oil_production.xlsx",
+        filepath=f"{DATA_DIR}/crude_oil_production.xlsx",
         extract_func=extract_oil_data,
         transform_func=transform_oil_data,
         load_func=load_oil_data,
     )
+
+
+def run_natural_gas_etl():
     run_source_pipeline(
         source_name="natural_gas",
-        filepath="/opt/airflow/data/raw/natural_gas_production.xlsx",
+        filepath=f"{DATA_DIR}/natural_gas_production.xlsx",
         extract_func=extract_gas_data,
         transform_func=transform_gas_data,
         load_func=load_gas_data,
@@ -98,7 +110,19 @@ with DAG(
     catchup=False,
     tags=["etl", "postgres", "alberta-energy"],
 ) as dag:
-    run_etl = PythonOperator(
-        task_id="run_etl_pipeline",
-        python_callable=run_pipeline,
+    download_source_data_task = PythonOperator(
+        task_id="download_source_data",
+        python_callable=download_inputs,
     )
+
+    crude_oil_etl = PythonOperator(
+        task_id="run_crude_oil_etl",
+        python_callable=run_crude_oil_etl,
+    )
+
+    natural_gas_etl = PythonOperator(
+        task_id="run_natural_gas_etl",
+        python_callable=run_natural_gas_etl,
+    )
+
+    download_source_data_task >> [crude_oil_etl, natural_gas_etl]
