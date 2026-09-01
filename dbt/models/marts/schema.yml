@@ -24,3 +24,21 @@ models:
         tests: [not_null]
       - name: total_volume_m3
         tests: [not_null]
+
+  - name: monthly_production_by_product
+    description: Monthly reported volume per product from Petrinex facility data.
+    columns:
+      - name: production_month
+        tests: [not_null]
+      - name: product_id
+        tests: [not_null]
+      - name: record_count
+        tests: [not_null]
+
+  - name: top_operators_by_month
+    description: Operator league table per production month and product.
+    columns:
+      - name: operator_name
+        tests: [not_null]
+      - name: volume_rank
+        tests: [not_null]

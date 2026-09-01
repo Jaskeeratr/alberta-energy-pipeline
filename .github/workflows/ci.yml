@@ -45,6 +45,7 @@ jobs:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ci_password
       POSTGRES_DB: energy_pipeline
+      PETRINEX_MONTH: "2026-03"
     steps:
       - uses: actions/checkout@v4
 
@@ -64,6 +65,20 @@ jobs:
 
       - name: Run pipeline again to prove upserts are idempotent
         run: python run_pipeline.py
+
+      - name: Load one real Petrinex month (about 520k rows)
+        run: python run_pipeline.py --source petrinex --months ${{ env.PETRINEX_MONTH }}
+
+      - name: Reload the same month to prove the bulk upsert is idempotent
+        run: python run_pipeline.py --source petrinex --months ${{ env.PETRINEX_MONTH }}
+
+      - name: Verify row counts and audit records
+        run: |
+          psql "$PGURL" -c "SELECT count(*) AS facility_rows FROM facility_production"
+          psql "$PGURL" -c "SELECT source_name, status, rows_extracted, rows_loaded FROM pipeline_runs ORDER BY run_id"
+          psql "$PGURL" -v ON_ERROR_STOP=1 -c "DO \$\$ DECLARE n bigint; BEGIN SELECT count(*) INTO n FROM facility_production; IF n < 100000 THEN RAISE EXCEPTION 'expected >100k facility rows, got %', n; END IF; END \$\$;"
+        env:
+          PGURL: postgresql://postgres:ci_password@localhost:5432/energy_pipeline
 
       - name: Build and test dbt models
         run: dbt build --project-dir dbt --profiles-dir dbt

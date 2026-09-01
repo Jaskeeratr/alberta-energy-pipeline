@@ -90,6 +90,24 @@ Current pipeline support:
   - Extracts Table S5.1.
   - Converts marketable natural gas production rows into normalized records.
 
+### Petrinex facility volumetrics
+
+The AER workbooks are summary tables (45 records per run). For volume, the
+pipeline also loads [Petrinex](https://www.petrinex.ca/public-data/) Alberta
+monthly conventional volumetric data: every reporting facility in the province,
+roughly **520,000 records per production month**.
+
+```bash
+# Load a single month
+python run_pipeline.py --source petrinex --months 2026-03
+
+# Backfill several months
+python run_pipeline.py --source petrinex --months 2026-01,2026-02,2026-03
+```
+
+Each month is tracked as its own `pipeline_runs` record, so a backfill is
+auditable month by month rather than as one opaque run.
+
 ## Pipeline Flow
 
 1. **Extract Excel data**
@@ -340,13 +358,15 @@ Extraction was profiled and optimized; full methodology and results are in
 
 | Metric | Value |
 | --- | --- |
-| Extraction time per run | 53.27s to 0.18s (~299x faster) |
-| Test suite | 38 tests, 89% coverage of `scripts/` |
+| AER extraction time per run | 53.27s to 0.18s (~299x faster) |
+| Petrinex month processed | 549,016 raw rows to 523,248 records in ~5s |
+| Test suite | 75 tests, 91% coverage of `scripts/` |
 | Coverage gate enforced in CI | 85% minimum |
 
-Query timings in `reports/query_benchmark.md` are deliberately not used for
-performance claims: the production tables currently hold 45 rows, which is too
-small for index or plan comparisons to be meaningful.
+Petrinex months are loaded with PostgreSQL `COPY` into a temporary table
+followed by a single set-based `INSERT ... ON CONFLICT` merge. Half a million
+statement-per-row upserts would dominate the run; staging and merging in one
+pass keeps the load to a single bulk operation.
 
 ## Continuous Integration
 
@@ -354,9 +374,9 @@ Every push runs two GitHub Actions jobs:
 
 - `test`: the pytest unit suite, gated at 85% coverage.
 - `integration`: spins up PostgreSQL 16, creates the schema, runs the full
-  ETL pipeline end to end against the committed AER workbooks, runs it a
-  second time to prove the upserts are idempotent, then runs `dbt build`
-  including all dbt data tests.
+  AER ETL end to end, downloads and loads a real Petrinex month (about 520,000
+  records), reruns both to prove the upserts are idempotent, asserts the loaded
+  row count, then runs `dbt build` including all dbt data tests.
 
 ## Dashboard
 
@@ -391,8 +411,8 @@ performance improvement percentages are claimed.
 ## Current Limitations
 
 - The AER summary tables are small: a full run loads 45 production records
-  (25 crude oil, 20 natural gas). Throughput and query-performance claims are
-  not meaningful at this volume.
+  (25 crude oil, 20 natural gas). Volume-based claims come from the Petrinex
+  facility data instead.
 - Query benchmark tooling exists, but real timing results must be generated from
   a loaded PostgreSQL database before making performance claims.
 - Dashboard screenshots are not included yet.
@@ -439,7 +459,11 @@ documentation.
 - Added automated pytest coverage for core ETL behavior (38 tests, 89%
   coverage), enforced by an 85% CI gate on every push.
 - Modeled an analytics layer with dbt (staging views, a unified fact table,
-  yearly aggregates) with dbt data tests.
+  yearly aggregates, monthly product totals, operator league tables) with dbt
+  data tests.
+- Ingested Petrinex Alberta facility volumetric data at roughly 520,000 records
+  per production month using PostgreSQL COPY staging plus a set-based merge,
+  with month-by-month backfill and audit tracking.
 - Added an end-to-end CI integration job that loads a real PostgreSQL database
   and verifies upsert idempotency and all dbt tests.
 - Dockerized the full stack: Airflow plus PostgreSQL with schema auto-creation

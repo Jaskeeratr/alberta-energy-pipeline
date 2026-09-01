@@ -1,3 +1,4 @@
+import io
 import os
 import json
 from urllib.parse import quote_plus
@@ -199,3 +200,86 @@ def load_data_quality_issues(
             ),
             issue_rows,
         )
+
+
+FACILITY_COLUMNS = [
+    "production_month",
+    "operator_ba_id",
+    "operator_name",
+    "facility_id",
+    "facility_type",
+    "facility_subtype_desc",
+    "facility_name",
+    "facility_location",
+    "activity_id",
+    "product_id",
+    "from_to_id",
+    "volume",
+    "energy",
+    "hours",
+    "volume_masked",
+]
+
+
+def load_facility_production(df: pd.DataFrame) -> int:
+    """
+    Bulk load Petrinex facility production records.
+
+    A month is roughly half a million rows, which is far too many for
+    statement-per-row upserts. Instead the batch is streamed into an unlogged
+    temporary table with COPY and merged in a single set-based statement, so
+    the whole month costs one pass rather than 500,000 round trips.
+
+    Returns the number of rows staged for the merge.
+    """
+    if df.empty:
+        print("No facility rows to load; skipping load step.")
+        return 0
+
+    staged = df.reindex(columns=FACILITY_COLUMNS)
+
+    buffer = io.StringIO()
+    staged.to_csv(buffer, index=False, header=False, na_rep=r"\N")
+    buffer.seek(0)
+
+    column_list = ", ".join(FACILITY_COLUMNS)
+
+    try:
+        engine = create_engine(get_database_url())
+        with engine.begin() as conn:
+            raw_conn = conn.connection
+            with raw_conn.cursor() as cursor:
+                cursor.execute(
+                    f"""
+                    CREATE TEMP TABLE tmp_facility_production
+                    (LIKE facility_production INCLUDING DEFAULTS)
+                    ON COMMIT DROP
+                    """
+                )
+                cursor.copy_expert(
+                    f"COPY tmp_facility_production ({column_list}) "
+                    r"FROM STDIN WITH (FORMAT csv, NULL '\N')",
+                    buffer,
+                )
+                cursor.execute(
+                    f"""
+                    INSERT INTO facility_production ({column_list})
+                    SELECT {column_list} FROM tmp_facility_production
+                    ON CONFLICT (production_month, facility_id, activity_id,
+                                 product_id, from_to_id)
+                    DO UPDATE SET
+                        volume = EXCLUDED.volume,
+                        energy = EXCLUDED.energy,
+                        hours = EXCLUDED.hours,
+                        volume_masked = EXCLUDED.volume_masked,
+                        operator_name = EXCLUDED.operator_name,
+                        loaded_at = NOW()
+                    """
+                )
+    except Exception as exc:
+        raise RuntimeError(
+            f"Failed to load data into facility_production: {exc}"
+        ) from exc
+
+    print(f"Upserted {len(staged):,} rows into facility_production table")
+    return len(staged)

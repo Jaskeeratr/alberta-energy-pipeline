@@ -58,3 +58,40 @@ CREATE TABLE IF NOT EXISTS data_quality_issues (
 CREATE INDEX IF NOT EXISTS idx_pipeline_runs_source ON pipeline_runs(source_name);
 CREATE INDEX IF NOT EXISTS idx_pipeline_runs_status ON pipeline_runs(status);
 CREATE INDEX IF NOT EXISTS idx_quality_issues_run ON data_quality_issues(pipeline_run_id);
+
+-- Petrinex Alberta monthly conventional volumetric data.
+-- Roughly 520,000 rows per production month, so this table is sized and
+-- indexed for bulk loading rather than the small AER summary tables above.
+CREATE TABLE IF NOT EXISTS facility_production (
+    id                    BIGSERIAL PRIMARY KEY,
+    production_month      DATE NOT NULL,
+    operator_ba_id        VARCHAR(20),
+    operator_name         VARCHAR(200),
+    facility_id           VARCHAR(30) NOT NULL,
+    facility_type         VARCHAR(10),
+    facility_subtype_desc VARCHAR(120),
+    facility_name         VARCHAR(200),
+    facility_location     VARCHAR(40),
+    activity_id           VARCHAR(20) NOT NULL,
+    product_id            VARCHAR(20) NOT NULL,
+    from_to_id            VARCHAR(30) NOT NULL DEFAULT '',
+    volume                NUMERIC(18, 4),
+    energy                NUMERIC(18, 4),
+    hours                 NUMERIC(10, 2),
+    -- Petrinex masks confidential volumes with '***'; the row is kept and
+    -- flagged rather than dropped or silently coerced to NULL.
+    volume_masked         BOOLEAN NOT NULL DEFAULT FALSE,
+    province              VARCHAR(10) DEFAULT 'AB',
+    loaded_at             TIMESTAMP DEFAULT NOW()
+);
+
+-- Natural key verified unique across a full month of unmasked records.
+-- from_to_id defaults to '' because NULLs never compare equal in a unique index.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_facility_production_record
+    ON facility_production(production_month, facility_id, activity_id, product_id, from_to_id);
+
+CREATE INDEX IF NOT EXISTS idx_facility_month ON facility_production(production_month);
+CREATE INDEX IF NOT EXISTS idx_facility_operator ON facility_production(operator_name);
+CREATE INDEX IF NOT EXISTS idx_facility_product ON facility_production(product_id);
+CREATE INDEX IF NOT EXISTS idx_facility_activity_product
+    ON facility_production(activity_id, product_id);

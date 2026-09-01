@@ -9,5 +9,7 @@ sources:
         description: Normalized AER crude oil production records.
       - name: gas_production
         description: Normalized AER natural gas production records.
+      - name: facility_production
+        description: Petrinex Alberta monthly facility volumetric records.
       - name: pipeline_runs
         description: Audit record for each ETL run.

@@ -1,0 +1,20 @@
+select
+    production_month,
+    extract(year from production_month)::int as production_year,
+    operator_ba_id,
+    operator_name,
+    facility_id,
+    facility_type,
+    facility_subtype_desc,
+    facility_name,
+    facility_location,
+    activity_id,
+    product_id,
+    from_to_id,
+    volume,
+    energy,
+    hours,
+    volume_masked,
+    province,
+    loaded_at
+from {{ source('raw', 'facility_production') }}
