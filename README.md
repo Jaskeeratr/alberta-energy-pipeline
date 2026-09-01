@@ -96,6 +96,8 @@ Current pipeline support:
    - Loads the `Tables` sheet from each supported workbook.
    - Preserves the raw report layout so the transform step can locate the target
      table.
+   - Parses each workbook once using a Rust-backed reader, which cut extraction
+     from 53.3s to 0.18s per run (see [docs/performance.md](docs/performance.md)).
 
 2. **Transform report-style tables**
    - Finds Table S4.1 for crude oil and Table S5.1 for natural gas.
@@ -172,16 +174,22 @@ Install Python dependencies:
 pip install -r requirements.txt
 ```
 
-Run automated tests:
+Run automated tests with the coverage gate CI enforces:
 
 ```bash
-pytest
+pytest --cov=scripts --cov-fail-under=85
 ```
 
 Generate a query benchmark report after PostgreSQL has been loaded:
 
 ```bash
-python scripts/benchmark_queries.py
+python -m scripts.benchmark_queries
+```
+
+Measure extraction performance:
+
+```bash
+python -m scripts.benchmark_extract --runs 3
 ```
 
 Create the database schema in PostgreSQL:
@@ -325,11 +333,26 @@ dbt build --project-dir dbt --profiles-dir dbt
 
 Point Power BI at the `analytics` schema tables instead of the raw ones.
 
+## Performance
+
+Extraction was profiled and optimized; full methodology and results are in
+[docs/performance.md](docs/performance.md).
+
+| Metric | Value |
+| --- | --- |
+| Extraction time per run | 53.27s to 0.18s (~299x faster) |
+| Test suite | 38 tests, 89% coverage of `scripts/` |
+| Coverage gate enforced in CI | 85% minimum |
+
+Query timings in `reports/query_benchmark.md` are deliberately not used for
+performance claims: the production tables currently hold 45 rows, which is too
+small for index or plan comparisons to be meaningful.
+
 ## Continuous Integration
 
 Every push runs two GitHub Actions jobs:
 
-- `test`: the pytest unit suite.
+- `test`: the pytest unit suite, gated at 85% coverage.
 - `integration`: spins up PostgreSQL 16, creates the schema, runs the full
   ETL pipeline end to end against the committed AER workbooks, runs it a
   second time to prove the upserts are idempotent, then runs `dbt build`
@@ -367,6 +390,9 @@ performance improvement percentages are claimed.
 
 ## Current Limitations
 
+- The AER summary tables are small: a full run loads 45 production records
+  (25 crude oil, 20 natural gas). Throughput and query-performance claims are
+  not meaningful at this volume.
 - Query benchmark tooling exists, but real timing results must be generated from
   a loaded PostgreSQL database before making performance claims.
 - Dashboard screenshots are not included yet.
@@ -408,8 +434,10 @@ documentation.
 - Implemented incremental upsert loading with a natural-key unique index.
 - Automated source data downloads from the AER website with atomic writes and
   payload sanity checks.
-- Added automated pytest coverage for core ETL behavior, run in GitHub Actions
-  CI on every push.
+- Profiled and optimized the extraction step, reducing it from 53.3s to 0.18s
+  per run (~299x) with output verified identical.
+- Added automated pytest coverage for core ETL behavior (38 tests, 89%
+  coverage), enforced by an 85% CI gate on every push.
 - Modeled an analytics layer with dbt (staging views, a unified fact table,
   yearly aggregates) with dbt data tests.
 - Added an end-to-end CI integration job that loads a real PostgreSQL database
